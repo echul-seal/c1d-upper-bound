@@ -1,0 +1,42 @@
+name: import-and-verify
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/import.yml']
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - name: import bundle
+        run: |
+          set -e
+          for g in https://gateway.pinata.cloud/ipfs/ https://ipfs.io/ipfs/ https://dweb.link/ipfs/ https://w3s.link/ipfs/; do
+            if curl -fsSL -A curl/8 --max-time 120 "${g}bafkreifveyzg3tkffwfwwoke4jedupxmkvu2mkr4ep4szg3he3gq7b6ftu" -o c1d_records.tgz; then break; fi
+          done
+          echo 'b526326dcd452d8b6b3944e2483a3eec5569a62a3c23f92c9b6726cd0f87c59d  c1d_records.tgz' | sha256sum -c -
+          mkdir x && tar xf c1d_records.tgz -C x
+          mv x/README.md NOTES.md && mv x/ub x/lb . && rmdir x
+          { find ub lb -type f | sort | xargs sha256sum; sha256sum c1d_records.tgz NOTES.md; } > SHA256SUMS
+          git config user.name echul-seal
+          git config user.email 347329407+echul-seal@users.noreply.github.com
+          git add -A
+          git commit -m 'Add certificate bundle from IPFS (bafkreifveyzg3tkffwfwwoke4jedupxmkvu2mkr4ep4szg3he3gq7b6ftu) and SHA256SUMS'
+          git push
+      - name: run verifiers
+        run: |
+          set +e
+          mkdir -p ci
+          python3 --version > ci/python_version.txt 2>&1
+          { echo '$ python3 ub/vfy2.py ub/c_f10240.json'; s=$(date +%s); python3 ub/vfy2.py ub/c_f10240.json; echo "rc $? elapsed $(( $(date +%s) - s ))s"; } > ci/vfy2.txt 2>&1
+          cat ci/vfy2.txt
+          git add ci && git commit -m 'ci: vfy2.py output' && git push
+          { echo '$ python3 -I ub/v224.py ub/cons_f10240.json'; s=$(date +%s); python3 -I ub/v224.py ub/cons_f10240.json; echo "rc $? elapsed $(( $(date +%s) - s ))s"; } > ci/v224.txt 2>&1
+          cat ci/v224.txt
+          git add ci && git commit -m 'ci: v224.py (page verify.py) output' && git push
+          { echo '$ python3 ub/verify_int.py ub/c_f10240.json'; s=$(date +%s); python3 ub/verify_int.py ub/c_f10240.json; echo "rc $? elapsed $(( $(date +%s) - s ))s"; } > ci/verify_int.txt 2>&1
+          cat ci/verify_int.txt
+          git add ci && git commit -m 'ci: verify_int.py output' && git push
