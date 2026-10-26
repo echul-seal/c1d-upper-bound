@@ -1,0 +1,2 @@
+cP_0.167.json P-criterion arb verifier: PASS segments 180 boxes 812 minmargin 2.84e-05 time 3s
+Certified: C_1d >= 1/(1-eta) = 1000/833 = 1.200480192
